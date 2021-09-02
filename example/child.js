@@ -6,9 +6,7 @@ import CoolKeyboardMovement from './CoolKeyboardMovement';
 import XRContainerReciever from '../src/XRContainerReciever';
 
 //scene
-let prevTime = performance.now();
 const objects = [];
-
 const color = new THREE.Color();
 
 const scene = new THREE.Scene();
@@ -42,7 +40,7 @@ color.setHSL(Math.random() * 0.3 + 0.5, 0.75, Math.random() * 0.25 + 0.75);
 
 const floorGeometry = new THREE.PlaneGeometry(2000, 2000, 100, 100);
 floorGeometry.rotateX(-Math.PI / 2);
-const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x65982 });
+const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x228956 });
 
 const floor = new THREE.Mesh(floorGeometry, floorMaterial);
 scene.add(floor);
@@ -55,6 +53,13 @@ scene.add(light);
 scene.background = new THREE.Color(0x333333);
 scene.fog = new THREE.Fog(0xaaaaaa, 0, 750);
 
+const geometry = new THREE.BoxGeometry(2, 2, 2);
+const material = new THREE.MeshBasicMaterial({ color: color });
+const cube = new THREE.Mesh(geometry, material);
+cube.position.y += 20;
+scene.add(cube);
+objects.push(cube);
+
 const dolly = new THREE.Group();
 dolly.add(camera);
 scene.add(dolly);
@@ -63,18 +68,12 @@ const coolXRMovement = new CoolXRMovement(renderer, dolly);
 const coolKeyboardMovement = new CoolKeyboardMovement(renderer, camera, dolly);
 
 //reciever
-const reciever = new XRContainerReciever();
+const reciever = new XRContainerReciever(renderer.domElement, camera, 20);
 
 //render
 renderer.setAnimationLoop(() => {
-  const time = performance.now();
-  const delta = (time - prevTime) / 1000;
-  prevTime = time;
-
   coolKeyboardMovement.tick(objects);
   coolXRMovement.tick(renderer);
 
-  renderer.clear(true, true, true);
   renderer.render(scene, camera);
-  container.render(renderer, camera);
 });

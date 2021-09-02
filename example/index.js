@@ -6,7 +6,6 @@ import XRContainer from '../src/XRContainer';
 import CoolKeyboardMovement from './CoolKeyboardMovement';
 
 //scene
-let prevTime = performance.now();
 const objects = [];
 
 const color = new THREE.Color();
@@ -75,14 +74,9 @@ scene.add(container.object);
 
 //render
 renderer.setAnimationLoop(() => {
-  const time = performance.now();
-  const delta = (time - prevTime) / 1000;
-  prevTime = time;
-
   coolKeyboardMovement.tick(objects);
   coolXRMovement.tick(renderer);
 
-  renderer.clear(true, true, true);
   renderer.render(scene, camera);
   container.render(renderer, camera);
 });
