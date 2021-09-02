@@ -1,0 +1,30 @@
+{
+  "name": "three-xr-container",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "parcel build src/*.js",
+    "watch": "parcel watch src/*.js",
+    "serve": "parcel serve example/*.html"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryota-mitarai/three-xr-container.git"
+  },
+  "keywords": [
+    "three",
+    "webxr"
+  ],
+  "author": "ryota-mitarai",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/ryota-mitarai/three-xr-container/issues"
+  },
+  "homepage": "https://github.com/ryota-mitarai/three-xr-container#readme",
+  "devDependencies": {
+    "parcel": "^2.0.0-rc.0"
+  },
+  "dependencies": {
+    "three": "^0.132.2"
+  }
+}
