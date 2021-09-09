@@ -1,7 +1,17 @@
 import * as THREE from 'three';
 import { EventDispatcher } from 'three';
 
-import { event_camera, event_canvas, event_open } from './events';
+import { fragmentShader, vertexShader } from './shaders';
+
+import {
+  event_camera,
+  event_canvas,
+  event_open,
+  event_sessionStarted,
+  event_sessionEnded,
+  event_childBuffer,
+  event_render,
+} from './events';
 
 export default class XRContainer extends EventDispatcher {
   canvasWidth;
@@ -12,8 +22,14 @@ export default class XRContainer extends EventDispatcher {
   orthoCamera;
   renderingPlane;
 
+  xr;
+
+  didTellChildSessionStarted;
+
   constructor(url, width, height, depth) {
     super();
+
+    this.didTellChildSessionStarted = false;
 
     window.addEventListener(event_canvas().type, this.handleCanvas);
 
@@ -64,6 +80,10 @@ export default class XRContainer extends EventDispatcher {
         { once: true }
       );
     }
+
+    document.addEventListener(event_childBuffer().type, (event) => {
+      this.childBuffer = event.detail;
+    });
   }
 
   handleCanvas = (e) => {
@@ -100,24 +120,51 @@ export default class XRContainer extends EventDispatcher {
   render = (renderer, camera) => {
     if (!this.texture) return;
 
+    //manage child state
+
+    const gl = renderer.getContext();
+
+    // if (!this.childBuffer) {
+    //   this.childBuffer = gl.createFramebuffer();
+    //   this.iframe.contentDocument.dispatchEvent(event_childBuffer(this.childBuffer));
+    // }
+
+    if (!this.parentBuffer) {
+      this.parentBuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    }
+
+    if (this.didTellChildSessionStarted === false && renderer.xr.isPresenting === true) {
+      this.didTellChildSessionStarted = true;
+      this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
+
+      this.oldMaterial = this.mesh.material;
+
+      const newMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 1.0 },
+          resolution: { value: new THREE.Vector2() },
+        },
+
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+      });
+
+      this.mesh.material = newMaterial;
+    } else if (this.didTellChildSessionStarted === true && renderer.xr.isPresenting === false) {
+      this.didTellChildSessionStarted = false;
+      this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
+
+      this.mesh.material = this.oldMaterial;
+    }
+
+    //render
+
     const canvas = renderer.domElement;
-    if (
-      this.canvasWidth !== canvas.width ||
-      this.canvasHeight !== canvas.height
-    ) {
+    if (this.canvasWidth !== canvas.width || this.canvasHeight !== canvas.height) {
       this.onCanvasResize(canvas);
     }
 
-    const relativePosition = camera.position
-      .clone()
-      .sub(this.object.getWorldPosition(new THREE.Vector3()));
-    this.iframe.contentDocument.dispatchEvent(
-      event_camera(relativePosition, camera.rotation)
-    );
-
     this.texture.needsUpdate = true;
-
-    const gl = renderer.getContext();
 
     //render mesh into stencil buffer
     gl.enable(gl.STENCIL_TEST);
@@ -129,14 +176,40 @@ export default class XRContainer extends EventDispatcher {
     renderer.render(this.mesh, camera);
     this.mesh.visible = false;
 
-    //render pixel data, using the stencil buffer as a mask
+    //render the child site into the area marked by the stencil buffer
     renderer.clearDepth();
     gl.stencilFunc(gl.EQUAL, 1, 0xff);
     gl.stencilMask(0x00);
 
-    renderer.render(this.renderingPlane, this.orthoCamera);
+    if (renderer.xr.isPresenting === false) {
+      //desktop mode
+      renderer.render(this.renderingPlane, this.orthoCamera);
+    } else if (renderer.xr.isPresenting === true) {
+      this.iframe.contentDocument.dispatchEvent(event_render());
+
+      if (!this.parentBuffer || !this.childBuffer) return;
+
+      //xr mode
+
+      const { x, y } = renderer.getSize(new THREE.Vector2());
+      console.log(x, y);
+
+      // const parentBuffer = new Uint8Array(x * y * 4);
+      // gl.readPixels(0, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, parentBuffer);
+
+      // gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.parentBuffer);
+      // gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.childBuffer);
+      // gl.blitFramebuffer(0, 0, x, y, 0, 0, x, y, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+
+      // gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.parentBuffer);
+    }
 
     gl.stencilMask(0xff);
     gl.disable(gl.STENCIL_TEST);
+
+    const relativePosition = camera.position
+      .clone()
+      .sub(this.object.getWorldPosition(new THREE.Vector3()));
+    this.iframe.contentDocument.dispatchEvent(event_camera(relativePosition, camera.rotation));
   };
 }
