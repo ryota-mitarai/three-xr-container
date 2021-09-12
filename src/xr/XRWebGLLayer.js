@@ -15,6 +15,9 @@ export default class XRWebGLLayer {
     this.stencil = stencil;
     this.alpha = alpha;
 
+    this.width = context.drawingBufferWidth;
+    this.height = context.drawingBufferHeight;
+
     this.xrFramebuffer = null;
   }
 
@@ -30,12 +33,12 @@ export default class XRWebGLLayer {
   set framebuffer(framebuffer) {}
 
   get framebufferWidth() {
-    return this.session.xrState.renderWidth[0] * 2; //! maybe context.drawingBufferWidth
+    return this.width;
   }
   set framebufferWidth(framebufferWidth) {}
 
   get framebufferHeight() {
-    return this.session.xrState.renderHeight[0]; //!
+    return this.height;
   }
   set framebufferHeight(framebufferHeight) {}
 }

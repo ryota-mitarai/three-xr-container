@@ -14,18 +14,6 @@ import {
 } from './events';
 
 export default class XRContainer extends EventDispatcher {
-  canvasWidth;
-  canvasHeight;
-  iframe;
-  mesh;
-  object;
-  orthoCamera;
-  renderingPlane;
-
-  xr;
-
-  didTellChildSessionStarted;
-
   constructor(url, width, height, depth) {
     super();
 
@@ -43,7 +31,6 @@ export default class XRContainer extends EventDispatcher {
         side: THREE.DoubleSide,
       });
       this.mesh = new THREE.Mesh(geometry1, material1);
-      this.mesh.visible = false;
       this.mesh.geometry.computeBoundingSphere();
 
       this.object.add(this.mesh);
@@ -120,14 +107,7 @@ export default class XRContainer extends EventDispatcher {
   render = (renderer, camera) => {
     if (!this.texture) return;
 
-    //manage child state
-
     const gl = renderer.getContext();
-
-    // if (!this.childBuffer) {
-    //   this.childBuffer = gl.createFramebuffer();
-    //   this.iframe.contentDocument.dispatchEvent(event_childBuffer(this.childBuffer));
-    // }
 
     if (!this.parentBuffer) {
       this.parentBuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
@@ -136,26 +116,33 @@ export default class XRContainer extends EventDispatcher {
     if (this.didTellChildSessionStarted === false && renderer.xr.isPresenting === true) {
       this.didTellChildSessionStarted = true;
       this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
-
-      this.oldMaterial = this.mesh.material;
-
-      const newMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          time: { value: 1.0 },
-          resolution: { value: new THREE.Vector2() },
-        },
-
-        vertexShader: vertexShader,
-        fragmentShader: fragmentShader,
-      });
-
-      this.mesh.material = newMaterial;
     } else if (this.didTellChildSessionStarted === true && renderer.xr.isPresenting === false) {
       this.didTellChildSessionStarted = false;
       this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
-
-      this.mesh.material = this.oldMaterial;
     }
+
+    const resolution = renderer.getSize(new THREE.Vector2());
+    const texture = new THREE.DataTexture(
+      this.childBuffer,
+      resolution.x,
+      resolution.y,
+      THREE.RGBAFormat
+    );
+
+    const newMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        u_resolution: { value: resolution },
+        u_texture: { value: texture },
+      },
+
+      vertexShader: vertexShader,
+      fragmentShader: fragmentShader,
+
+      side: THREE.DoubleSide,
+    });
+
+    this.mesh.material.dispose();
+    this.mesh.material = newMaterial;
 
     //render
 
@@ -167,45 +154,29 @@ export default class XRContainer extends EventDispatcher {
     this.texture.needsUpdate = true;
 
     //render mesh into stencil buffer
-    gl.enable(gl.STENCIL_TEST);
-    gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-    gl.stencilFunc(gl.ALWAYS, 1, 0xff);
-    gl.stencilMask(0xff);
+    // gl.enable(gl.STENCIL_TEST);
+    // gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+    // gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+    // gl.stencilMask(0xff);
 
-    this.mesh.visible = true;
-    renderer.render(this.mesh, camera);
-    this.mesh.visible = false;
+    // this.mesh.visible = true;
+    // renderer.render(this.mesh, camera);
+    // this.mesh.visible = false;
 
     //render the child site into the area marked by the stencil buffer
-    renderer.clearDepth();
-    gl.stencilFunc(gl.EQUAL, 1, 0xff);
-    gl.stencilMask(0x00);
+    // renderer.clearDepth();
+    // gl.stencilFunc(gl.EQUAL, 1, 0xff);
+    // gl.stencilMask(0x00);
 
     if (renderer.xr.isPresenting === false) {
       //desktop mode
-      renderer.render(this.renderingPlane, this.orthoCamera);
+      // renderer.render(this.renderingPlane, this.orthoCamera);
     } else if (renderer.xr.isPresenting === true) {
       this.iframe.contentDocument.dispatchEvent(event_render());
-
-      if (!this.parentBuffer || !this.childBuffer) return;
-
-      //xr mode
-
-      const { x, y } = renderer.getSize(new THREE.Vector2());
-      console.log(x, y);
-
-      // const parentBuffer = new Uint8Array(x * y * 4);
-      // gl.readPixels(0, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, parentBuffer);
-
-      // gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.parentBuffer);
-      // gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.childBuffer);
-      // gl.blitFramebuffer(0, 0, x, y, 0, 0, x, y, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-
-      // gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.parentBuffer);
     }
 
-    gl.stencilMask(0xff);
-    gl.disable(gl.STENCIL_TEST);
+    // gl.stencilMask(0xff);
+    // gl.disable(gl.STENCIL_TEST);
 
     const relativePosition = camera.position
       .clone()

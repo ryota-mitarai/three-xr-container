@@ -11,8 +11,8 @@ import {
   event_sessionEnded,
   event_render,
 } from './events';
-import XR from './xr/child/XR';
-import XRWebGLLayer from './xr/child/XRWebGLLayer';
+import XR from './xr/XR';
+import XRWebGLLayer from './xr/XRWebGLLayer';
 
 export default class XRContainerReciever extends EventDispatcher {
   renderer;
@@ -76,9 +76,7 @@ export default class XRContainerReciever extends EventDispatcher {
 
   onSessionStarted = async () => {
     const session = await navigator.xr.requestSession();
-
     this.renderer.xr.setSession(session);
-
     this.isPresenting = true;
   };
 
@@ -103,9 +101,6 @@ export default class XRContainerReciever extends EventDispatcher {
 
   tick = () => {
     const gl = this.renderer.getContext('webgl');
-
-    // if (!this.framebuffer) return;
-    // gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
 
     const { x, y } = this.renderer.getSize(new THREE.Vector2());
     const buffer = new Uint8Array(x * y * 4);

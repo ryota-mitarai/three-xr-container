@@ -38,7 +38,7 @@ const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 0.75);
 light.position.set(0.5, 1, 0.75);
 scene.add(light);
 
-// scene.background = new THREE.Color(0x443333);
+scene.background = new THREE.Color(0x443333);
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const material = new THREE.MeshBasicMaterial({ color: color });
@@ -70,6 +70,7 @@ function animate(time, frame) {
   cube.rotation.x = cube.rotation.z + 0.01;
 
   if (receiver.isPresenting === false) renderer.render(scene, camera);
+  receiver.tick();
 }
 
 document.addEventListener(event_render().type, () => {
