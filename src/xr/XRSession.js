@@ -1,20 +1,50 @@
-import XRBoundedReferenceSpace from './XRBoundedReferenceSpace';
-import XRRenderState from './XRRenderState';
+import { event_animationFrame } from "../events";
+import XRRenderState from "./XRRenderState";
 
 export default class XRSession extends EventTarget {
   constructor(xrOffsetMatrix) {
     super();
 
-    this._referenceSpace = new XRBoundedReferenceSpace(this);
     this.renderState = new XRRenderState(this);
+
+    this.requestedFns = [];
+
+    this.waitForSession = async () => {
+      return new Promise((resolve, reject) => {
+        document.addEventListener(
+          event_animationFrame().type,
+          (e) => {
+            const { frame } = e.detail;
+            if (frame.session) resolve(frame.session);
+            reject();
+          },
+          {
+            once: true,
+          }
+        );
+      });
+    };
+
+    document.addEventListener(event_animationFrame().type, (e) => {
+      const { time, frame } = e.detail;
+      if (!frame) return;
+
+      this.parentSession = frame.session;
+      this.parentRenderState = this.parentSession.renderState;
+
+      this.requestedFns.forEach((fn) => fn(time, frame));
+    });
   }
 
-  requestAnimationFrame = (fn) => {};
+  requestAnimationFrame = (fn) => {
+    this.requestedFns.push(fn);
+  };
 
   cancelAnimationFrame = (id) => {};
 
-  requestReferenceSpace = (type, options = {}) => {
-    return Promise.resolve(this._referenceSpace);
+  requestReferenceSpace = async (type, options = {}) => {
+    const session = this.parentSession ?? (await this.waitForSession());
+    return session.requestReferenceSpace(type, options);
   };
 
   updateRenderState = (newState) => {
@@ -22,6 +52,65 @@ export default class XRSession extends EventTarget {
   };
 
   get [Symbol.toStringTag]() {
-    return 'XRSession';
+    return "XRSession";
   }
+
+  get inputSources() {
+    return this.parentSession.inputSources;
+  }
+
+  get baseLayer() {
+    return this.renderState.baseLayer;
+  }
+  set baseLayer(baseLayer) {
+    this.updateRenderState({ baseLayer });
+  }
+
+  // async end() {
+  //   await this.onexitpresent();
+  //   this.dispatchEvent(new CustomEvent('end'));
+  // }
+  //
+  // get onblur() {
+  //   return _elementGetter(this, 'blur');
+  // }
+  // set onblur(onblur) {
+  //   _elementSetter(this, 'blur', onblur);
+  // }
+  // get onfocus() {
+  //   return _elementGetter(this, 'focus');
+  // }
+  // set onfocus(onfocus) {
+  //   _elementSetter(this, 'focus', onfocus);
+  // }
+  // get onresetpose() {
+  //   return _elementGetter(this, 'resetpose');
+  // }
+  // set onresetpose(onresetpose) {
+  //   _elementSetter(this, 'resetpose', onresetpose);
+  // }
+  // get onend() {
+  //   return _elementGetter(this, 'end');
+  // }
+  // set onend(onend) {
+  //   _elementSetter(this, 'end', onend);
+  // }
+  // get onselect() {
+  //   return _elementGetter(this, 'select');
+  // }
+  // set onselect(onselect) {
+  //   _elementSetter(this, 'select', onselect);
+  // }
+  // get onselectstart() {
+  //   return _elementGetter(this, 'selectstart');
+  // }
+  // set onselectstart(onselectstart) {
+  //   _elementSetter(this, 'selectstart', onselectstart);
+  // }
+  // get onselectend() {
+  //   return _elementGetter(this, 'selectend');
+  // }
+  // set onselectend(onselectend) {
+  //   _elementSetter(this, 'selectend', onselectend);
+  // }
 }

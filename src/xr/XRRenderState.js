@@ -5,6 +5,8 @@ export default class XRRenderState {
     this._inlineVerticalFieldOfView = 90;
     this._baseLayer = null;
     this._outputContext = null;
+    this._depthNear = 0.01;
+    this._depthFar = 1000;
   }
 
   get depthNear() {

@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { EventDispatcher } from 'three';
+import * as THREE from "three";
+import { EventDispatcher } from "three";
 
-import { event_childBuffer } from './events';
+import { event_childBuffer } from "./events";
 
 import {
   event_camera,
@@ -10,18 +10,11 @@ import {
   event_sessionStarted,
   event_sessionEnded,
   event_render,
-} from './events';
-import XR from './xr/XR';
-import XRWebGLLayer from './xr/XRWebGLLayer';
+} from "./events";
+import XR from "./xr/XR";
+import XRWebGLLayer from "./xr/XRWebGLLayer";
 
 export default class XRContainerReciever extends EventDispatcher {
-  renderer;
-  scene;
-  camera;
-  heightOffset;
-
-  isPresenting;
-
   constructor(renderer, scene, camera, heightOffset) {
     super();
 
@@ -40,38 +33,35 @@ export default class XRContainerReciever extends EventDispatcher {
 
     document.addEventListener(event_camera().type, this.updateCamera);
 
-    document.addEventListener(event_sessionStarted().type, this.onSessionStarted);
+    document.addEventListener(
+      event_sessionStarted().type,
+      this.onSessionStarted
+    );
     document.addEventListener(event_sessionEnded().type, this.onSessionEnded);
 
     document.addEventListener(event_render().type, this.render);
 
-    document.addEventListener(event_childBuffer().type, this.onChildBuffer);
-
     const xr = new XR();
     delete navigator.xr;
-    Object.defineProperty(navigator, 'xr', {
+    Object.defineProperty(navigator, "xr", {
       get() {
         return xr;
       },
     });
 
-    const gl = this.renderer.getContext('webgl');
+    // const gl = this.renderer.getContext('webgl');
 
-    class modifiedXRWebGLLayer extends XRWebGLLayer {
-      constructor(session, context, options) {
-        super(session, context, options);
+    // class modifiedXRWebGLLayer extends XRWebGLLayer {
+    //   constructor(session, context, options) {
+    //     super(session, context, options);
 
-        this.xrFramebuffer = gl.createFramebuffer();
+    //     this.xrFramebuffer = gl.createFramebuffer();
 
-        window.childFrameBuffer = this.xrFramebuffer;
-      }
-    }
+    //     window.childFrameBuffer = this.xrFramebuffer;
+    //   }
+    // }
 
-    window.XRWebGLLayer = modifiedXRWebGLLayer;
-  };
-
-  onChildBuffer = (e) => {
-    this.framebuffer = e.detail;
+    window.XRWebGLLayer = XRWebGLLayer;
   };
 
   onSessionStarted = async () => {
@@ -100,12 +90,20 @@ export default class XRContainerReciever extends EventDispatcher {
   };
 
   tick = () => {
-    const gl = this.renderer.getContext('webgl');
-
     const { x, y } = this.renderer.getSize(new THREE.Vector2());
-    const buffer = new Uint8Array(x * y * 4);
-    gl.readPixels(0, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, buffer);
+    if (this.x !== x || this.y !== y) {
+      this.buffer = new Uint8Array(x * y * 4);
+      this.x = x;
+      this.y = y;
+    }
 
-    parent.document.dispatchEvent(event_childBuffer(buffer));
+    const gl = this.renderer.getContext("webgl");
+
+    //TODO: this.x and this.y are not the correct coordinates to read from in XR
+    //maybe just read the viewport from XRWebGLLayer
+
+    gl.readPixels(0, 0, this.x, this.y, gl.RGBA, gl.UNSIGNED_BYTE, this.buffer);
+
+    parent.document.dispatchEvent(event_childBuffer(this.buffer));
   };
 }

@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { EventDispatcher } from 'three';
+import * as THREE from "three";
+import { EventDispatcher } from "three";
 
-import { fragmentShader, vertexShader } from './shaders';
+import { fragmentShader, vertexShader } from "./shaders";
 
 import {
   event_camera,
@@ -11,7 +11,8 @@ import {
   event_sessionEnded,
   event_childBuffer,
   event_render,
-} from './events';
+  event_animationFrame,
+} from "./events";
 
 export default class XRContainer extends EventDispatcher {
   constructor(url, width, height, depth) {
@@ -36,7 +37,7 @@ export default class XRContainer extends EventDispatcher {
       this.object.add(this.mesh);
 
       const geometry2 = new THREE.EdgesGeometry(geometry1);
-      const material2 = new THREE.LineBasicMaterial({ color: '#ffffff' });
+      const material2 = new THREE.LineBasicMaterial({ color: "#ffffff" });
       const wireframe = new THREE.LineSegments(geometry2, material2);
 
       this.object.add(wireframe);
@@ -44,23 +45,23 @@ export default class XRContainer extends EventDispatcher {
 
     {
       //init iframe
-      const div = document.createElement('div');
-      div.style.overflow = 'hidden';
-      div.style.position = 'relative';
+      const div = document.createElement("div");
+      div.style.overflow = "hidden";
+      div.style.position = "relative";
 
-      const iframe = (this.iframe = document.createElement('iframe'));
+      const iframe = (this.iframe = document.createElement("iframe"));
       iframe.src = url;
 
-      iframe.style.position = 'absolute';
-      iframe.style.top = '100%';
-      iframe.style.left = '100%';
-      iframe.style.visibility = 'hidden';
+      iframe.style.position = "absolute";
+      iframe.style.top = "100%";
+      iframe.style.left = "100%";
+      iframe.style.visibility = "hidden";
 
       div.appendChild(iframe);
       document.body.appendChild(div);
 
       this.iframe.addEventListener(
-        'load',
+        "load",
         () => {
           this.iframe.contentDocument.dispatchEvent(event_open());
         },
@@ -86,26 +87,32 @@ export default class XRContainer extends EventDispatcher {
     this.iframe.width = canvas.width;
     this.iframe.height = canvas.height;
 
-    this.orthoCamera = new THREE.OrthographicCamera(
-      canvas.width / -2,
-      canvas.width / 2,
-      canvas.height / 2,
-      canvas.height / -2,
-      1,
-      1000
-    );
-    this.orthoCamera.position.z = 5;
+    // this.orthoCamera = new THREE.OrthographicCamera(
+    //   canvas.width / -2,
+    //   canvas.width / 2,
+    //   canvas.height / 2,
+    //   canvas.height / -2,
+    //   1,
+    //   1000
+    // );
+    // this.orthoCamera.position.z = 5;
 
-    const geometry = new THREE.PlaneGeometry(canvas.width, canvas.height);
-    const material = new THREE.MeshBasicMaterial({
-      transparent: true,
-      map: this.texture,
-    });
-    this.renderingPlane = new THREE.Mesh(geometry, material);
+    // const geometry = new THREE.PlaneGeometry(canvas.width, canvas.height);
+    // const material = new THREE.MeshBasicMaterial({
+    //   transparent: true,
+    //   map: this.texture,
+    // });
+    // this.renderingPlane = new THREE.Mesh(geometry, material);
   };
 
-  render = (renderer, camera) => {
-    if (!this.texture) return;
+  render = (renderer, camera, time, frame) => {
+    // if (!this.texture) return;
+
+    // console.log(frame);
+
+    this.iframe.contentDocument.dispatchEvent(
+      event_animationFrame(time, frame)
+    );
 
     const gl = renderer.getContext();
 
@@ -113,10 +120,16 @@ export default class XRContainer extends EventDispatcher {
       this.parentBuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
     }
 
-    if (this.didTellChildSessionStarted === false && renderer.xr.isPresenting === true) {
+    if (
+      this.didTellChildSessionStarted === false &&
+      renderer.xr.isPresenting === true
+    ) {
       this.didTellChildSessionStarted = true;
       this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
-    } else if (this.didTellChildSessionStarted === true && renderer.xr.isPresenting === false) {
+    } else if (
+      this.didTellChildSessionStarted === true &&
+      renderer.xr.isPresenting === false
+    ) {
       this.didTellChildSessionStarted = false;
       this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
     }
@@ -141,17 +154,24 @@ export default class XRContainer extends EventDispatcher {
       side: THREE.DoubleSide,
     });
 
+    if (this.mesh.material.uniforms) {
+      this.mesh.material.uniforms.u_texture.value.dispose();
+    }
+
     this.mesh.material.dispose();
     this.mesh.material = newMaterial;
 
     //render
 
     const canvas = renderer.domElement;
-    if (this.canvasWidth !== canvas.width || this.canvasHeight !== canvas.height) {
+    if (
+      this.canvasWidth !== canvas.width ||
+      this.canvasHeight !== canvas.height
+    ) {
       this.onCanvasResize(canvas);
     }
 
-    this.texture.needsUpdate = true;
+    // this.texture.needsUpdate = true;
 
     //render mesh into stencil buffer
     // gl.enable(gl.STENCIL_TEST);
@@ -181,6 +201,8 @@ export default class XRContainer extends EventDispatcher {
     const relativePosition = camera.position
       .clone()
       .sub(this.object.getWorldPosition(new THREE.Vector3()));
-    this.iframe.contentDocument.dispatchEvent(event_camera(relativePosition, camera.rotation));
+    this.iframe.contentDocument.dispatchEvent(
+      event_camera(relativePosition, camera.rotation)
+    );
   };
 }

@@ -22,15 +22,20 @@ export default class XRWebGLLayer {
   }
 
   getViewport(view) {
-    return view._viewport;
+    return this.session.parentRenderState.baseLayer.getViewport(view);
   }
+
+  //TODO: fix lag when entering XR
+  //started happening after i hooked up getViewport() above
 
   requestViewportScaling(viewportScaleFactor) {}
 
   get framebuffer() {
     return this.xrFramebuffer;
   }
-  set framebuffer(framebuffer) {}
+  set framebuffer(framebuffer) {
+    this.xrFramebuffer = framebuffer;
+  }
 
   get framebufferWidth() {
     return this.width;
