@@ -1,7 +1,7 @@
-import * as THREE from "three";
-import { EventDispatcher } from "three";
+import * as THREE from 'three';
+import { EventDispatcher } from 'three';
 
-import { fragmentShader, vertexShader } from "./shaders";
+import { fragmentShader, vertexShader } from './shaders';
 
 import {
   event_camera,
@@ -12,7 +12,7 @@ import {
   event_childBuffer,
   event_render,
   event_animationFrame,
-} from "./events";
+} from './events';
 
 export default class XRContainer extends EventDispatcher {
   constructor(url, width, height, depth) {
@@ -37,7 +37,7 @@ export default class XRContainer extends EventDispatcher {
       this.object.add(this.mesh);
 
       const geometry2 = new THREE.EdgesGeometry(geometry1);
-      const material2 = new THREE.LineBasicMaterial({ color: "#ffffff" });
+      const material2 = new THREE.LineBasicMaterial({ color: '#ffffff' });
       const wireframe = new THREE.LineSegments(geometry2, material2);
 
       this.object.add(wireframe);
@@ -45,23 +45,23 @@ export default class XRContainer extends EventDispatcher {
 
     {
       //init iframe
-      const div = document.createElement("div");
-      div.style.overflow = "hidden";
-      div.style.position = "relative";
+      const div = document.createElement('div');
+      div.style.overflow = 'hidden';
+      div.style.position = 'relative';
 
-      const iframe = (this.iframe = document.createElement("iframe"));
+      const iframe = (this.iframe = document.createElement('iframe'));
       iframe.src = url;
 
-      iframe.style.position = "absolute";
-      iframe.style.top = "100%";
-      iframe.style.left = "100%";
-      iframe.style.visibility = "hidden";
+      iframe.style.position = 'absolute';
+      iframe.style.top = '100%';
+      iframe.style.left = '100%';
+      iframe.style.visibility = 'hidden';
 
       div.appendChild(iframe);
       document.body.appendChild(div);
 
       this.iframe.addEventListener(
-        "load",
+        'load',
         () => {
           this.iframe.contentDocument.dispatchEvent(event_open());
         },
@@ -110,9 +110,7 @@ export default class XRContainer extends EventDispatcher {
 
     // console.log(frame);
 
-    this.iframe.contentDocument.dispatchEvent(
-      event_animationFrame(time, frame)
-    );
+    this.iframe.contentDocument.dispatchEvent(event_animationFrame(time, frame));
 
     const gl = renderer.getContext();
 
@@ -120,16 +118,10 @@ export default class XRContainer extends EventDispatcher {
       this.parentBuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
     }
 
-    if (
-      this.didTellChildSessionStarted === false &&
-      renderer.xr.isPresenting === true
-    ) {
+    if (this.didTellChildSessionStarted === false && renderer.xr.isPresenting === true) {
       this.didTellChildSessionStarted = true;
       this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
-    } else if (
-      this.didTellChildSessionStarted === true &&
-      renderer.xr.isPresenting === false
-    ) {
+    } else if (this.didTellChildSessionStarted === true && renderer.xr.isPresenting === false) {
       this.didTellChildSessionStarted = false;
       this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
     }
@@ -164,10 +156,7 @@ export default class XRContainer extends EventDispatcher {
     //render
 
     const canvas = renderer.domElement;
-    if (
-      this.canvasWidth !== canvas.width ||
-      this.canvasHeight !== canvas.height
-    ) {
+    if (this.canvasWidth !== canvas.width || this.canvasHeight !== canvas.height) {
       this.onCanvasResize(canvas);
     }
 
@@ -201,8 +190,6 @@ export default class XRContainer extends EventDispatcher {
     const relativePosition = camera.position
       .clone()
       .sub(this.object.getWorldPosition(new THREE.Vector3()));
-    this.iframe.contentDocument.dispatchEvent(
-      event_camera(relativePosition, camera.rotation)
-    );
+    this.iframe.contentDocument.dispatchEvent(event_camera(relativePosition, camera.rotation));
   };
 }

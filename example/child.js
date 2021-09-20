@@ -1,22 +1,17 @@
-import * as THREE from "three";
-import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
+import * as THREE from 'three';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
-import CoolXRMovement from "./CoolXRMovement";
-import CoolKeyboardMovement from "./CoolKeyboardMovement";
-import XRContainerReceiver from "../src/XRContainerReceiver";
-import { event_render } from "../src/events";
+import CoolXRMovement from './CoolXRMovement';
+import CoolKeyboardMovement from './CoolKeyboardMovement';
+import XRContainerReceiver from '../src/XRContainerReceiver';
+import { event_render } from '../src/events';
 
 //scene
 const objects = [];
 const color = new THREE.Color();
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.01,
-  1000
-);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
 camera.position.z = 5;
 camera.position.y = 1.6;
 
@@ -28,7 +23,7 @@ renderer.xr.enabled = true;
 
 document.body.appendChild(VRButton.createButton(renderer));
 
-window.addEventListener("resize", onWindowResize);
+window.addEventListener('resize', onWindowResize);
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;

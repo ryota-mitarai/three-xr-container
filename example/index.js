@@ -1,10 +1,10 @@
-import * as THREE from "three";
-import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
-import Stats from "three/examples/jsm/libs/stats.module";
+import * as THREE from 'three';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import Stats from 'three/examples/jsm/libs/stats.module';
 
-import CoolXRMovement from "./CoolXRMovement";
-import XRContainer from "../src/XRContainer";
-import CoolKeyboardMovement from "./CoolKeyboardMovement";
+import CoolXRMovement from './CoolXRMovement';
+import XRContainer from '../src/XRContainer';
+import CoolKeyboardMovement from './CoolKeyboardMovement';
 
 window.XRWebGLLayer = XRWebGLLayer;
 
@@ -14,12 +14,7 @@ const objects = [];
 const color = new THREE.Color();
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.01,
-  1000
-);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
 camera.position.z = 5;
 camera.position.y = 1.6;
 
@@ -31,7 +26,7 @@ renderer.xr.enabled = true;
 
 document.body.appendChild(VRButton.createButton(renderer));
 
-window.addEventListener("resize", onWindowResize);
+window.addEventListener('resize', onWindowResize);
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -65,7 +60,7 @@ const coolXRMovement = new CoolXRMovement(renderer, dolly);
 const coolKeyboardMovement = new CoolKeyboardMovement(renderer, camera, dolly);
 
 //container
-const container = new XRContainer("http://localhost:1234/child.html", 8, 6, 8);
+const container = new XRContainer('http://localhost:1234/child.html', 8, 6, 8);
 container.object.position.y = 3.1;
 container.object.position.z = -5;
 scene.add(container.object);

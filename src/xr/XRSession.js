@@ -1,5 +1,5 @@
-import { event_animationFrame } from "../events";
-import XRRenderState from "./XRRenderState";
+import { event_animationFrame } from '../events';
+import XRRenderState from './XRRenderState';
 
 export default class XRSession extends EventTarget {
   constructor(xrOffsetMatrix) {
@@ -52,7 +52,7 @@ export default class XRSession extends EventTarget {
   };
 
   get [Symbol.toStringTag]() {
-    return "XRSession";
+    return 'XRSession';
   }
 
   get inputSources() {

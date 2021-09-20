@@ -1,4 +1,4 @@
-import XRSession from "./XRSession";
+import XRSession from './XRSession';
 
 export default class XR extends EventTarget {
   constructor() {
@@ -13,7 +13,7 @@ export default class XR extends EventTarget {
     if (!this.session) {
       const session = new XRSession(mode, options);
 
-      session.addEventListener("end", () => (this.session = null), {
+      session.addEventListener('end', () => (this.session = null), {
         once: true,
       });
 

@@ -41,15 +41,11 @@ export default class CoolXRMovement {
     const controllerModelFactory = new XRControllerModelFactory();
 
     this.controllerGrip1 = renderer.xr.getControllerGrip(0);
-    this.controllerGrip1.add(
-      controllerModelFactory.createControllerModel(this.controllerGrip1)
-    );
+    this.controllerGrip1.add(controllerModelFactory.createControllerModel(this.controllerGrip1));
     this.player.add(this.controllerGrip1);
 
     this.controllerGrip2 = renderer.xr.getControllerGrip(1);
-    this.controllerGrip2.add(
-      controllerModelFactory.createControllerModel(this.controllerGrip2)
-    );
+    this.controllerGrip2.add(controllerModelFactory.createControllerModel(this.controllerGrip2));
     this.player.add(this.controllerGrip2);
 
     //extend a line out of each controller
