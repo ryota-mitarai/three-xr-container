@@ -67,22 +67,13 @@ const coolKeyboardMovement = new CoolKeyboardMovement(renderer, camera, dolly);
 const receiver = new XRContainerReceiver(renderer, scene, camera, 1);
 
 //render
-renderer.setAnimationLoop(() => {
-  animate();
-});
-
-function animate(time, frame) {
+renderer.setAnimationLoop((time, frame) => {
   coolKeyboardMovement.tick(objects);
   coolXRMovement.tick(renderer);
 
   cube.rotation.z = cube.rotation.z + 0.01;
   cube.rotation.x = cube.rotation.z + 0.01;
 
-  if (receiver.isPresenting === false) renderer.render(scene, camera);
+  renderer.render(scene, camera);
   receiver.tick();
-}
-
-document.addEventListener(event_render().type, () => {
-  receiver.tick();
-  animate();
 });

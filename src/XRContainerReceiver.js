@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { EventDispatcher } from 'three';
 
-import { event_childBuffer } from './events';
-
 import {
   event_camera,
   event_canvas,
   event_open,
   event_sessionStarted,
   event_sessionEnded,
-  event_render,
+  event_childBuffer,
+  event_resolution,
 } from './events';
+
 import XR from './xr/XR';
 import XRWebGLLayer from './xr/XRWebGLLayer';
 
@@ -36,7 +36,9 @@ export default class XRContainerReciever extends EventDispatcher {
     document.addEventListener(event_sessionStarted().type, this.onSessionStarted);
     document.addEventListener(event_sessionEnded().type, this.onSessionEnded);
 
-    document.addEventListener(event_render().type, this.render);
+    document.addEventListener(event_resolution().type, (e) => {
+      this.resolution = e.detail;
+    });
 
     const xr = new XR();
     delete navigator.xr;
@@ -45,18 +47,6 @@ export default class XRContainerReciever extends EventDispatcher {
         return xr;
       },
     });
-
-    // const gl = this.renderer.getContext('webgl');
-
-    // class modifiedXRWebGLLayer extends XRWebGLLayer {
-    //   constructor(session, context, options) {
-    //     super(session, context, options);
-
-    //     this.xrFramebuffer = gl.createFramebuffer();
-
-    //     window.childFrameBuffer = this.xrFramebuffer;
-    //   }
-    // }
 
     window.XRWebGLLayer = XRWebGLLayer;
   };
@@ -82,24 +72,19 @@ export default class XRContainerReciever extends EventDispatcher {
     this.camera.rotation.copy(data.rot);
   };
 
-  render = () => {
-    this.renderer.render(this.scene, this.camera);
-  };
-
   tick = () => {
-    const { x, y } = this.renderer.getSize(new THREE.Vector2());
+    const { x, y } = this.resolution ? this.resolution : this.renderer.getSize(new THREE.Vector2());
+
     if (this.x !== x || this.y !== y) {
       this.buffer = new Uint8Array(x * y * 4);
       this.x = x;
       this.y = y;
+
+      this.renderTarget = new THREE.WebGLRenderTarget(this.x, this.y);
+      this.renderer.setRenderTarget(this.renderTarget);
     }
 
-    const gl = this.renderer.getContext('webgl');
-
-    //TODO: this.x and this.y are not the correct coordinates to read from in XR
-    //maybe just read the viewport from XRWebGLLayer
-
-    gl.readPixels(0, 0, this.x, this.y, gl.RGBA, gl.UNSIGNED_BYTE, this.buffer);
+    this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, this.x, this.y, this.buffer);
 
     parent.document.dispatchEvent(event_childBuffer(this.buffer));
   };

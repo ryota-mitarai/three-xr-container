@@ -76,5 +76,7 @@ renderer.setAnimationLoop((time, frame) => {
   renderer.render(scene, camera);
   container.render(renderer, camera, time, frame);
 
+  // console.log('🧛', renderer);
+
   stats.update();
 });

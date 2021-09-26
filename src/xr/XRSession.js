@@ -7,7 +7,8 @@ export default class XRSession extends EventTarget {
 
     this.renderState = new XRRenderState(this);
 
-    this.requestedFns = [];
+    this.requestedFns = {};
+    this.i = 0;
 
     this.waitForSession = async () => {
       return new Promise((resolve, reject) => {
@@ -28,19 +29,25 @@ export default class XRSession extends EventTarget {
     document.addEventListener(event_animationFrame().type, (e) => {
       const { time, frame } = e.detail;
       if (!frame) return;
+      if (Object.entries(this.requestedFns).length === 0) return;
 
       this.parentSession = frame.session;
       this.parentRenderState = this.parentSession.renderState;
 
-      this.requestedFns.forEach((fn) => fn(time, frame));
+      const [id, fn] = Object.entries(this.requestedFns)[0];
+      delete this.requestedFns[id];
+      fn(time, frame);
     });
   }
 
   requestAnimationFrame = (fn) => {
-    this.requestedFns.push(fn);
+    this.requestedFns[++this.i] = fn;
+    return this.i;
   };
 
-  cancelAnimationFrame = (id) => {};
+  cancelAnimationFrame = (id) => {
+    delete this.requestedFns[id];
+  };
 
   requestReferenceSpace = async (type, options = {}) => {
     const session = this.parentSession ?? (await this.waitForSession());

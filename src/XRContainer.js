@@ -86,30 +86,9 @@ export default class XRContainer extends EventDispatcher {
 
     this.iframe.width = canvas.width;
     this.iframe.height = canvas.height;
-
-    // this.orthoCamera = new THREE.OrthographicCamera(
-    //   canvas.width / -2,
-    //   canvas.width / 2,
-    //   canvas.height / 2,
-    //   canvas.height / -2,
-    //   1,
-    //   1000
-    // );
-    // this.orthoCamera.position.z = 5;
-
-    // const geometry = new THREE.PlaneGeometry(canvas.width, canvas.height);
-    // const material = new THREE.MeshBasicMaterial({
-    //   transparent: true,
-    //   map: this.texture,
-    // });
-    // this.renderingPlane = new THREE.Mesh(geometry, material);
   };
 
   render = (renderer, camera, time, frame) => {
-    // if (!this.texture) return;
-
-    // console.log(frame);
-
     this.iframe.contentDocument.dispatchEvent(event_animationFrame(time, frame));
 
     const gl = renderer.getContext();
@@ -126,7 +105,12 @@ export default class XRContainer extends EventDispatcher {
       this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
     }
 
-    const resolution = renderer.getSize(new THREE.Vector2());
+    const layer = frame?.session.renderState.baseLayer;
+
+    const resolution = layer
+      ? new THREE.Vector2(layer.framebufferWidth, layer.framebufferHeight)
+      : renderer.getSize(new THREE.Vector2());
+
     const texture = new THREE.DataTexture(
       this.childBuffer,
       resolution.x,
@@ -153,39 +137,10 @@ export default class XRContainer extends EventDispatcher {
     this.mesh.material.dispose();
     this.mesh.material = newMaterial;
 
-    //render
-
     const canvas = renderer.domElement;
     if (this.canvasWidth !== canvas.width || this.canvasHeight !== canvas.height) {
       this.onCanvasResize(canvas);
     }
-
-    // this.texture.needsUpdate = true;
-
-    //render mesh into stencil buffer
-    // gl.enable(gl.STENCIL_TEST);
-    // gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-    // gl.stencilFunc(gl.ALWAYS, 1, 0xff);
-    // gl.stencilMask(0xff);
-
-    // this.mesh.visible = true;
-    // renderer.render(this.mesh, camera);
-    // this.mesh.visible = false;
-
-    //render the child site into the area marked by the stencil buffer
-    // renderer.clearDepth();
-    // gl.stencilFunc(gl.EQUAL, 1, 0xff);
-    // gl.stencilMask(0x00);
-
-    if (renderer.xr.isPresenting === false) {
-      //desktop mode
-      // renderer.render(this.renderingPlane, this.orthoCamera);
-    } else if (renderer.xr.isPresenting === true) {
-      this.iframe.contentDocument.dispatchEvent(event_render());
-    }
-
-    // gl.stencilMask(0xff);
-    // gl.disable(gl.STENCIL_TEST);
 
     const relativePosition = camera.position
       .clone()

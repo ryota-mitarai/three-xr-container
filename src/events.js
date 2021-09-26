@@ -13,10 +13,7 @@ export const event_camera = (position, rotation) => {
   });
 };
 
-export const event_render = () => {
-  return new CustomEvent('xr-container-render');
-};
-
+//xr
 export const event_sessionStarted = () => {
   return new CustomEvent('xr-container-sessionStarted');
 };
@@ -25,7 +22,6 @@ export const event_sessionEnded = () => {
   return new CustomEvent('xr-container-sessionEnded');
 };
 
-//xr
 export const event_childBuffer = (buffer) => {
   return new CustomEvent('xr-container-childBuffer', { detail: buffer });
 };
@@ -33,4 +29,9 @@ export const event_childBuffer = (buffer) => {
 export const event_animationFrame = (time, frame) => {
   const data = { time, frame };
   return new CustomEvent('xr-container-animationFrame', { detail: data });
+};
+
+export const event_resolution = (x, y) => {
+  const data = { x, y };
+  return new CustomEvent('xr-container-resolution', { detail: data });
 };

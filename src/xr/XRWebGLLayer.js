@@ -1,3 +1,5 @@
+import { event_resolution, event_childBuffer } from '../events';
+
 export default class XRWebGLLayer {
   constructor(session, context, options = {}) {
     this.session = session;
@@ -15,18 +17,15 @@ export default class XRWebGLLayer {
     this.stencil = stencil;
     this.alpha = alpha;
 
-    this.width = context.drawingBufferWidth;
-    this.height = context.drawingBufferHeight;
-
-    this.xrFramebuffer = null;
+    this.xrFramebuffer = context.createFramebuffer();
   }
 
   getViewport(view) {
-    return this.session.parentRenderState.baseLayer.getViewport(view);
-  }
+    document.dispatchEvent(event_resolution(this.framebufferWidth, this.framebufferHeight));
 
-  //TODO: fix lag when entering XR
-  //started happening after i hooked up getViewport() above
+    const viewport = this.session.parentRenderState.baseLayer.getViewport(view);
+    return viewport;
+  }
 
   requestViewportScaling(viewportScaleFactor) {}
 
@@ -38,12 +37,12 @@ export default class XRWebGLLayer {
   }
 
   get framebufferWidth() {
-    return this.width;
+    return this.session.parentRenderState.baseLayer.framebufferWidth;
   }
   set framebufferWidth(framebufferWidth) {}
 
   get framebufferHeight() {
-    return this.height;
+    return this.session.parentRenderState.baseLayer.framebufferHeight;
   }
   set framebufferHeight(framebufferHeight) {}
 }
