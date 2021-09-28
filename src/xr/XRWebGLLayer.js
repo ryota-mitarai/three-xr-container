@@ -1,4 +1,4 @@
-import { event_resolution, event_childBuffer } from '../events';
+import { event_resolution } from '../events';
 
 export default class XRWebGLLayer {
   constructor(session, context, options = {}) {

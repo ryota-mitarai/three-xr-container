@@ -3,7 +3,6 @@ import { EventDispatcher } from 'three';
 
 import {
   event_camera,
-  event_canvas,
   event_open,
   event_sessionStarted,
   event_sessionEnded,
@@ -29,10 +28,7 @@ export default class XRContainerReciever extends EventDispatcher {
   }
 
   init = () => {
-    parent.dispatchEvent(event_canvas(this.renderer.domElement));
-
     document.addEventListener(event_camera().type, this.updateCamera);
-
     document.addEventListener(event_sessionStarted().type, this.onSessionStarted);
     document.addEventListener(event_sessionEnded().type, this.onSessionEnded);
 
@@ -63,11 +59,9 @@ export default class XRContainerReciever extends EventDispatcher {
 
   updateCamera = (e) => {
     if (!this.camera) return;
-
-    this.renderer.clear();
+    if (this.isPresenting === true) return;
 
     const data = e.detail;
-    data.pos.y += this.heightOffset;
     this.camera.position.copy(data.pos);
     this.camera.rotation.copy(data.rot);
   };
@@ -85,7 +79,6 @@ export default class XRContainerReciever extends EventDispatcher {
     }
 
     this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, this.x, this.y, this.buffer);
-
     parent.document.dispatchEvent(event_childBuffer(this.buffer));
   };
 }

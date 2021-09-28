@@ -4,7 +4,6 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import CoolXRMovement from './CoolXRMovement';
 import CoolKeyboardMovement from './CoolKeyboardMovement';
 import XRContainerReceiver from '../src/XRContainerReceiver';
-import { event_render } from '../src/events';
 
 //scene
 const objects = [];
@@ -73,6 +72,12 @@ renderer.setAnimationLoop((time, frame) => {
 
   cube.rotation.z = cube.rotation.z + 0.01;
   cube.rotation.x = cube.rotation.z + 0.01;
+
+  if (renderer.xr.isPresenting === true) {
+    coolXRMovement.player.position.x = document.relativePosition.x;
+    // coolXRMovement.player.position.y = document.relativePosition.y;
+    coolXRMovement.player.position.z = document.relativePosition.z;
+  }
 
   renderer.render(scene, camera);
   receiver.tick();

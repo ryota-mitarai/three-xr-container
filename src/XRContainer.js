@@ -2,15 +2,12 @@ import * as THREE from 'three';
 import { EventDispatcher } from 'three';
 
 import { fragmentShader, vertexShader } from './shaders';
-
 import {
   event_camera,
-  event_canvas,
   event_open,
   event_sessionStarted,
   event_sessionEnded,
   event_childBuffer,
-  event_render,
   event_animationFrame,
 } from './events';
 
@@ -18,9 +15,7 @@ export default class XRContainer extends EventDispatcher {
   constructor(url, width, height, depth) {
     super();
 
-    this.didTellChildSessionStarted = false;
-
-    window.addEventListener(event_canvas().type, this.handleCanvas);
+    this.childIsPresenting = false;
 
     {
       //init three
@@ -74,12 +69,6 @@ export default class XRContainer extends EventDispatcher {
     });
   }
 
-  handleCanvas = (e) => {
-    const canvas = e.detail;
-
-    this.texture = new THREE.CanvasTexture(canvas);
-  };
-
   onCanvasResize = (canvas) => {
     this.canvasWidth = canvas.width;
     this.canvasHeight = canvas.height;
@@ -89,24 +78,27 @@ export default class XRContainer extends EventDispatcher {
   };
 
   render = (renderer, camera, time, frame) => {
+    if (this.childIsPresenting !== renderer.xr.isPresenting) {
+      this.childIsPresenting = renderer.xr.isPresenting;
+
+      if (renderer.xr.isPresenting === true) {
+        this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
+      } else {
+        this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
+      }
+    }
+
+    const relativePosition = camera.position
+      .clone()
+      .sub(this.object.getWorldPosition(new THREE.Vector3()));
+
+    this.iframe.contentDocument.containerPosition = this.object.position.clone();
+    this.iframe.contentDocument.relativePosition = relativePosition;
+
+    this.iframe.contentDocument.dispatchEvent(event_camera(relativePosition, camera.rotation));
     this.iframe.contentDocument.dispatchEvent(event_animationFrame(time, frame));
 
-    const gl = renderer.getContext();
-
-    if (!this.parentBuffer) {
-      this.parentBuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
-    }
-
-    if (this.didTellChildSessionStarted === false && renderer.xr.isPresenting === true) {
-      this.didTellChildSessionStarted = true;
-      this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
-    } else if (this.didTellChildSessionStarted === true && renderer.xr.isPresenting === false) {
-      this.didTellChildSessionStarted = false;
-      this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
-    }
-
     const layer = frame?.session.renderState.baseLayer;
-
     const resolution = layer
       ? new THREE.Vector2(layer.framebufferWidth, layer.framebufferHeight)
       : renderer.getSize(new THREE.Vector2());
@@ -130,10 +122,7 @@ export default class XRContainer extends EventDispatcher {
       side: THREE.DoubleSide,
     });
 
-    if (this.mesh.material.uniforms) {
-      this.mesh.material.uniforms.u_texture.value.dispose();
-    }
-
+    this.mesh.material.uniforms?.u_texture.value.dispose();
     this.mesh.material.dispose();
     this.mesh.material = newMaterial;
 
@@ -141,10 +130,5 @@ export default class XRContainer extends EventDispatcher {
     if (this.canvasWidth !== canvas.width || this.canvasHeight !== canvas.height) {
       this.onCanvasResize(canvas);
     }
-
-    const relativePosition = camera.position
-      .clone()
-      .sub(this.object.getWorldPosition(new THREE.Vector3()));
-    this.iframe.contentDocument.dispatchEvent(event_camera(relativePosition, camera.rotation));
   };
 }
