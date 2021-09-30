@@ -2,22 +2,6 @@ import * as THREE from 'three';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
 export default class CoolXRMovement {
-  gamepad;
-
-  speed;
-  friction;
-
-  controller1;
-  controller2;
-  controllerGrip1;
-  controllerGrip2;
-  line1;
-  line2;
-
-  player;
-  direction;
-  velocity;
-
   constructor(renderer, player) {
     this.player = player;
     this.prevTime = performance.now();
@@ -110,8 +94,8 @@ export default class CoolXRMovement {
     velocity.x -= velocity.x * this.friction * delta;
     velocity.z -= velocity.z * this.friction * delta;
 
-    velocity.x -= velocity.x + thumbsickX * this.speed * delta;
-    velocity.z -= velocity.z + thumbsickY * this.speed * delta;
+    velocity.x -= velocity.x - thumbsickX * this.speed * delta;
+    velocity.z -= velocity.z - thumbsickY * this.speed * delta;
 
     //idk how to do the math to move in the direction of the camera
 

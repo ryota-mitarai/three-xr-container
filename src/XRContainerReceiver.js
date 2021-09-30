@@ -58,15 +58,25 @@ export default class XRContainerReciever extends EventDispatcher {
   };
 
   updateCamera = (e) => {
-    if (!this.camera) return;
-    if (this.isPresenting === true) return;
-
     const data = e.detail;
-    this.camera.position.copy(data.pos);
-    this.camera.rotation.copy(data.rot);
+
+    if (this.isPresenting === true) {
+      if (!this.player) return;
+      this.player.position.copy(data.pos);
+    } else {
+      if (!this.camera) return;
+      this.camera.position.copy(data.pos);
+      this.camera.rotation.copy(data.rot);
+    }
   };
 
-  tick = () => {
+  tick = (player) => {
+    this.player = player;
+
+    this.renderer.clear();
+  };
+
+  tock = () => {
     const { x, y } = this.resolution ? this.resolution : this.renderer.getSize(new THREE.Vector2());
 
     if (this.x !== x || this.y !== y) {
@@ -79,6 +89,6 @@ export default class XRContainerReciever extends EventDispatcher {
     }
 
     this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, this.x, this.y, this.buffer);
-    parent.document.dispatchEvent(event_childBuffer(this.buffer));
+    document.childBuffer = this.buffer;
   };
 }

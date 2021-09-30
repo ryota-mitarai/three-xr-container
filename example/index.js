@@ -74,7 +74,7 @@ renderer.setAnimationLoop((time, frame) => {
   coolXRMovement.tick(renderer);
 
   renderer.render(scene, camera);
-  container.render(renderer, camera, time, frame);
+  container.render(renderer, camera, time, frame, coolXRMovement.player);
 
   stats.update();
 });

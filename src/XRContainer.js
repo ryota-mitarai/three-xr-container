@@ -17,6 +17,10 @@ export default class XRContainer extends EventDispatcher {
 
     this.childIsPresenting = false;
 
+    this.width = width;
+    this.height = height;
+    this.depth = depth;
+
     {
       //init three
       this.object = new THREE.Group();
@@ -63,10 +67,6 @@ export default class XRContainer extends EventDispatcher {
         { once: true }
       );
     }
-
-    document.addEventListener(event_childBuffer().type, (event) => {
-      this.childBuffer = event.detail;
-    });
   }
 
   onCanvasResize = (canvas) => {
@@ -77,7 +77,7 @@ export default class XRContainer extends EventDispatcher {
     this.iframe.height = canvas.height;
   };
 
-  render = (renderer, camera, time, frame) => {
+  render = (renderer, camera, time, frame, player) => {
     if (this.childIsPresenting !== renderer.xr.isPresenting) {
       this.childIsPresenting = renderer.xr.isPresenting;
 
@@ -88,23 +88,28 @@ export default class XRContainer extends EventDispatcher {
       }
     }
 
-    const relativePosition = camera.position
-      .clone()
-      .sub(this.object.getWorldPosition(new THREE.Vector3()));
+    const user = this.childIsPresenting === true ? player : camera;
 
-    this.iframe.contentDocument.containerPosition = this.object.position.clone();
-    this.iframe.contentDocument.relativePosition = relativePosition;
+    const userPos = user.getWorldPosition(new THREE.Vector3());
+    const containerPos = this.object.getWorldPosition(new THREE.Vector3());
 
-    this.iframe.contentDocument.dispatchEvent(event_camera(relativePosition, camera.rotation));
+    const offsetPos = new THREE.Vector3(
+      userPos.x - containerPos.x,
+      userPos.y - (containerPos.y - this.height / 2),
+      userPos.z - containerPos.z
+    );
+
+    this.iframe.contentDocument.dispatchEvent(event_camera(offsetPos, camera.rotation));
     this.iframe.contentDocument.dispatchEvent(event_animationFrame(time, frame));
 
+    const childBuffer = this.iframe.contentDocument.childBuffer;
     const layer = frame?.session.renderState.baseLayer;
     const resolution = layer
       ? new THREE.Vector2(layer.framebufferWidth, layer.framebufferHeight)
       : renderer.getSize(new THREE.Vector2());
 
     const texture = new THREE.DataTexture(
-      this.childBuffer,
+      childBuffer,
       resolution.x,
       resolution.y,
       THREE.RGBAFormat
