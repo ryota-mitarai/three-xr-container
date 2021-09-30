@@ -124,6 +124,7 @@ export default class XRContainer extends EventDispatcher {
       vertexShader: vertexShader,
       fragmentShader: fragmentShader,
 
+      transparent: true,
       side: THREE.DoubleSide,
     });
 
