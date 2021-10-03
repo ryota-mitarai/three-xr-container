@@ -1,20 +1,14 @@
 import * as THREE from 'three';
-import { EventDispatcher } from 'three';
 
 import { fragmentShader, vertexShader } from './shaders';
-import {
-  event_camera,
-  event_open,
-  event_sessionStarted,
-  event_sessionEnded,
-  event_childBuffer,
-  event_animationFrame,
-} from './events';
 
-export default class XRContainer extends EventDispatcher {
+import XRViewport from './xr/XRViewport';
+import XRInputSource from './xr/XRInputSource';
+import XRReferenceSpace from './xr/XRReferenceSpace';
+import XRViewerPose from './xr/XRViewerPose';
+
+export default class XRContainer {
   constructor(url, width, height, depth) {
-    super();
-
     this.childIsPresenting = false;
 
     this.width = width;
@@ -62,12 +56,24 @@ export default class XRContainer extends EventDispatcher {
       this.iframe.addEventListener(
         'load',
         () => {
-          this.iframe.contentDocument.dispatchEvent(event_open());
+          this.iframe.contentWindow.postMessage({ message: 'xrcOpen' }, '*');
         },
         { once: true }
       );
     }
+
+    window.addEventListener('message', this.receiveMessage);
   }
+
+  receiveMessage = (e) => {
+    const message = e.data.message;
+    const value = e.data.value;
+
+    switch (message) {
+      case 'xrcSetChildBuffer':
+        this.buffer = value;
+    }
+  };
 
   onCanvasResize = (canvas) => {
     this.canvasWidth = canvas.width;
@@ -77,19 +83,89 @@ export default class XRContainer extends EventDispatcher {
     this.iframe.height = canvas.height;
   };
 
-  render = (renderer, camera, time, frame, player) => {
+  tick = (renderer, camera, player, time, frame) => {
     if (this.childIsPresenting !== renderer.xr.isPresenting) {
       this.childIsPresenting = renderer.xr.isPresenting;
 
       if (renderer.xr.isPresenting === true) {
-        this.iframe.contentDocument.dispatchEvent(event_sessionStarted());
+        this.iframe.contentWindow.postMessage({ message: 'xrcSessionStart' }, '*');
       } else {
-        this.iframe.contentDocument.dispatchEvent(event_sessionEnded());
+        this.iframe.contentWindow.postMessage({ message: 'xrcSessionEnd' }, '*');
+      }
+    }
+
+    if (frame) {
+      const session = frame.session;
+      if (!this.referenceSpace) {
+        frame?.session.requestReferenceSpace('local-floor').then((ref) => {
+          this.referenceSpace = ref;
+        });
+      }
+
+      if (this.referenceSpace) {
+        const ref = this.referenceSpace;
+
+        const viewerPose = frame.getViewerPose(ref);
+        if (!viewerPose) return;
+
+        //reference space
+        const fakeReferenceSpace = new XRReferenceSpace(session, 'fakeRefS');
+        this.iframe.contentWindow.postMessage(
+          {
+            message: 'xrcReferenceSpace',
+            value: fakeReferenceSpace,
+          },
+          '*'
+        );
+
+        //viewer pose
+        const fakeViewerPose = new XRViewerPose(viewerPose);
+        this.iframe.contentWindow.postMessage(
+          {
+            message: 'xrcViewerPose',
+            value: fakeViewerPose,
+          },
+          '*'
+        );
+
+        //input sources
+        const inputSources = session.inputSources;
+        const inputSourceList = Object.values(inputSources).map((input) => {
+          return new XRInputSource(input, session);
+        });
+
+        const fakeInputSources = Object.assign({}, inputSourceList);
+        fakeInputSources.length = inputSourceList.length;
+
+        this.iframe.contentWindow.postMessage(
+          {
+            message: 'xrcInputSources',
+            value: fakeInputSources,
+          },
+          '*'
+        );
+
+        //viewport
+        const baseLayer = session.renderState.baseLayer;
+
+        const framebufferWidth = baseLayer.framebufferWidth;
+        const framebufferHeight = baseLayer.framebufferHeight;
+
+        const viewports = viewerPose.views.map((view) => {
+          return new XRViewport(baseLayer.getViewport(view), view.eye);
+        });
+
+        this.iframe.contentWindow.postMessage(
+          {
+            message: 'xrcViewport',
+            value: { viewports, framebufferWidth, framebufferHeight },
+          },
+          '*'
+        );
       }
     }
 
     const user = this.childIsPresenting === true ? player : camera;
-
     const userPos = user.getWorldPosition(new THREE.Vector3());
     const containerPos = this.object.getWorldPosition(new THREE.Vector3());
 
@@ -99,17 +175,33 @@ export default class XRContainer extends EventDispatcher {
       userPos.z - containerPos.z
     );
 
-    this.iframe.contentDocument.dispatchEvent(event_camera(offsetPos, camera.rotation));
-    this.iframe.contentDocument.dispatchEvent(event_animationFrame(time, frame));
+    this.iframe.contentWindow.postMessage(
+      {
+        message: 'xrcSetCamera',
+        value: { pos: offsetPos, rot: camera.rotation.clone() },
+      },
+      '*'
+    );
 
-    const childBuffer = this.iframe.contentDocument.childBuffer;
+    this.iframe.contentWindow.postMessage(
+      {
+        message: 'xrcAnimationFrame',
+        value: { time },
+      },
+      '*'
+    );
+
     const layer = frame?.session.renderState.baseLayer;
     const resolution = layer
       ? new THREE.Vector2(layer.framebufferWidth, layer.framebufferHeight)
       : renderer.getSize(new THREE.Vector2());
 
+    if (this.buffer?.length !== resolution.x * resolution.y * 4) {
+      this.buffer = new Uint8Array(resolution.x * resolution.y * 4);
+    }
+
     const texture = new THREE.DataTexture(
-      childBuffer,
+      this.buffer,
       resolution.x,
       resolution.y,
       THREE.RGBAFormat

@@ -1,42 +1,66 @@
-import { event_animationFrame } from '../events';
+import XRFrame from './XRFrame';
+import XRReferenceSpace from './XRReferenceSpace';
 import XRRenderState from './XRRenderState';
 
 export default class XRSession extends EventTarget {
-  constructor(xrOffsetMatrix) {
+  constructor() {
     super();
 
     this.renderState = new XRRenderState(this);
+    this._referenceSpace = new XRReferenceSpace(this);
 
     this.requestedFns = {};
     this.i = 0;
 
-    this.waitForSession = async () => {
-      return new Promise((resolve, reject) => {
-        document.addEventListener(
-          event_animationFrame().type,
-          (e) => {
-            const { frame } = e.detail;
-            if (frame.session) resolve(frame.session);
-            reject();
-          },
-          {
-            once: true,
-          }
-        );
-      });
-    };
+    window.addEventListener('message', (e) => {
+      const message = e.data.message;
+      const value = e.data.value;
 
-    document.addEventListener(event_animationFrame().type, (e) => {
-      const { time, frame } = e.detail;
-      if (!frame) return;
-      if (Object.entries(this.requestedFns).length === 0) return;
+      switch (message) {
+        case 'xrcInputSources':
+          this._inputSources = value;
+          break;
+        case 'xrcReferenceSpace':
+          this._referenceSpace = value;
+          break;
+        case 'xrcViewerPose':
+          this._fakeViewerPose = value;
+          break;
+        case 'xrcViewport':
+          if (!this.baseLayer) return;
 
-      this.parentSession = frame.session;
-      this.parentRenderState = this.parentSession.renderState;
+          const { viewports, framebufferWidth, framebufferHeight } = value;
 
-      const [id, fn] = Object.entries(this.requestedFns)[0];
-      delete this.requestedFns[id];
-      fn(time, frame);
+          this.baseLayer.framebufferWidth = framebufferWidth;
+          this.baseLayer.framebufferHeight = framebufferHeight;
+
+          const newViewports = {};
+          viewports.forEach((viewport) => {
+            newViewports[viewport.eye] = viewport;
+          });
+          this.baseLayer._viewports = newViewports;
+
+          window.postMessage(
+            {
+              message: 'xrcSetResolution',
+              value: { x: framebufferWidth, y: framebufferHeight },
+            },
+            '*'
+          );
+          break;
+        case 'xrcAnimationFrame':
+          const { time } = value;
+
+          const frame = new XRFrame(this._fakeViewerPose, this);
+
+          if (!frame) return;
+          if (Object.entries(this.requestedFns).length === 0) return;
+
+          const [id, fn] = Object.entries(this.requestedFns)[0];
+          delete this.requestedFns[id];
+          fn(time, frame);
+          break;
+      }
     });
   }
 
@@ -50,8 +74,7 @@ export default class XRSession extends EventTarget {
   };
 
   requestReferenceSpace = async (type, options = {}) => {
-    const session = this.parentSession ?? (await this.waitForSession());
-    return session.requestReferenceSpace(type, options);
+    return Promise.resolve(this._referenceSpace);
   };
 
   updateRenderState = (newState) => {
@@ -63,7 +86,7 @@ export default class XRSession extends EventTarget {
   }
 
   get inputSources() {
-    return this.parentSession.inputSources;
+    return this._inputSources;
   }
 
   get baseLayer() {
@@ -72,52 +95,4 @@ export default class XRSession extends EventTarget {
   set baseLayer(baseLayer) {
     this.updateRenderState({ baseLayer });
   }
-
-  // async end() {
-  //   await this.onexitpresent();
-  //   this.dispatchEvent(new CustomEvent('end'));
-  // }
-  //
-  // get onblur() {
-  //   return _elementGetter(this, 'blur');
-  // }
-  // set onblur(onblur) {
-  //   _elementSetter(this, 'blur', onblur);
-  // }
-  // get onfocus() {
-  //   return _elementGetter(this, 'focus');
-  // }
-  // set onfocus(onfocus) {
-  //   _elementSetter(this, 'focus', onfocus);
-  // }
-  // get onresetpose() {
-  //   return _elementGetter(this, 'resetpose');
-  // }
-  // set onresetpose(onresetpose) {
-  //   _elementSetter(this, 'resetpose', onresetpose);
-  // }
-  // get onend() {
-  //   return _elementGetter(this, 'end');
-  // }
-  // set onend(onend) {
-  //   _elementSetter(this, 'end', onend);
-  // }
-  // get onselect() {
-  //   return _elementGetter(this, 'select');
-  // }
-  // set onselect(onselect) {
-  //   _elementSetter(this, 'select', onselect);
-  // }
-  // get onselectstart() {
-  //   return _elementGetter(this, 'selectstart');
-  // }
-  // set onselectstart(onselectstart) {
-  //   _elementSetter(this, 'selectstart', onselectstart);
-  // }
-  // get onselectend() {
-  //   return _elementGetter(this, 'selectend');
-  // }
-  // set onselectend(onselectend) {
-  //   _elementSetter(this, 'selectend', onselectend);
-  // }
 }

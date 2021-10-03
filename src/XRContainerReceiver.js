@@ -1,22 +1,10 @@
 import * as THREE from 'three';
-import { EventDispatcher } from 'three';
-
-import {
-  event_camera,
-  event_open,
-  event_sessionStarted,
-  event_sessionEnded,
-  event_childBuffer,
-  event_resolution,
-} from './events';
 
 import XR from './xr/XR';
 import XRWebGLLayer from './xr/XRWebGLLayer';
 
-export default class XRContainerReciever extends EventDispatcher {
+export default class XRContainerReciever {
   constructor(renderer, scene, camera, heightOffset) {
-    super();
-
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
@@ -24,18 +12,10 @@ export default class XRContainerReciever extends EventDispatcher {
 
     this.isPresenting = false;
 
-    document.addEventListener(event_open().type, this.init, { once: true });
+    window.addEventListener('message', this.receiveMessage);
   }
 
   init = () => {
-    document.addEventListener(event_camera().type, this.updateCamera);
-    document.addEventListener(event_sessionStarted().type, this.onSessionStarted);
-    document.addEventListener(event_sessionEnded().type, this.onSessionEnded);
-
-    document.addEventListener(event_resolution().type, (e) => {
-      this.resolution = e.detail;
-    });
-
     const xr = new XR();
     delete navigator.xr;
     Object.defineProperty(navigator, 'xr', {
@@ -47,9 +27,32 @@ export default class XRContainerReciever extends EventDispatcher {
     window.XRWebGLLayer = XRWebGLLayer;
   };
 
+  receiveMessage = (e) => {
+    const message = e.data.message;
+    const value = e.data.value;
+
+    switch (message) {
+      case 'xrcOpen':
+        this.init();
+        break;
+      case 'xrcSessionStart':
+        this.onSessionStarted();
+        break;
+      case 'xrcSessionEnd':
+        this.onSessionEnded();
+        break;
+      case 'xrcSetCamera':
+        this.updateCamera(value);
+        break;
+      case 'xrcSetResolution':
+        this.resolution = value;
+        break;
+    }
+  };
+
   onSessionStarted = async () => {
     const session = await navigator.xr.requestSession();
-    this.renderer.xr.setSession(session);
+    await this.renderer.xr.setSession(session);
     this.isPresenting = true;
   };
 
@@ -57,16 +60,14 @@ export default class XRContainerReciever extends EventDispatcher {
     this.isPresenting = false;
   };
 
-  updateCamera = (e) => {
-    const data = e.detail;
-
+  updateCamera = (value) => {
     if (this.isPresenting === true) {
       if (!this.player) return;
-      this.player.position.copy(data.pos);
+      this.player.position.copy(value.pos);
     } else {
       if (!this.camera) return;
-      this.camera.position.copy(data.pos);
-      this.camera.rotation.copy(data.rot);
+      this.camera.position.copy(value.pos);
+      this.camera.rotation.copy(value.rot);
     }
   };
 
@@ -77,7 +78,9 @@ export default class XRContainerReciever extends EventDispatcher {
   };
 
   tock = () => {
-    const { x, y } = this.resolution ? this.resolution : this.renderer.getSize(new THREE.Vector2());
+    if (this.isPresenting === true && !this.resolution) return;
+
+    const { x, y } = this.resolution ?? this.renderer.getSize(new THREE.Vector2());
 
     if (this.x !== x || this.y !== y) {
       this.buffer = new Uint8Array(x * y * 4);
@@ -89,6 +92,6 @@ export default class XRContainerReciever extends EventDispatcher {
     }
 
     this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, this.x, this.y, this.buffer);
-    document.childBuffer = this.buffer;
+    window.parent.postMessage({ message: 'xrcSetChildBuffer', value: this.buffer }, '*');
   };
 }

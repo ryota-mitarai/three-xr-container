@@ -73,8 +73,8 @@ renderer.setAnimationLoop((time, frame) => {
   coolKeyboardMovement.tick(objects);
   coolXRMovement.tick(renderer);
 
+  container.tick(renderer, camera, coolXRMovement.player, time, frame);
   renderer.render(scene, camera);
-  container.render(renderer, camera, time, frame, coolXRMovement.player);
 
   stats.update();
 });
