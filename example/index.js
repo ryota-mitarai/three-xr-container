@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import Stats from 'three/examples/jsm/libs/stats.module';
 
 import CoolXRMovement from './CoolXRMovement';
 import XRContainer from '../src/XRContainer';
 import CoolKeyboardMovement from './CoolKeyboardMovement';
+
+window.XRWebGLLayer = XRWebGLLayer;
 
 //scene
 const objects = [];
@@ -11,14 +14,9 @@ const objects = [];
 const color = new THREE.Color();
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.01,
-  1000
-);
-camera.position.z = 10;
-camera.position.y = 20;
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+camera.position.z = 5;
+camera.position.y = 1.6;
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -62,21 +60,21 @@ const coolXRMovement = new CoolXRMovement(renderer, dolly);
 const coolKeyboardMovement = new CoolKeyboardMovement(renderer, camera, dolly);
 
 //container
-const container = new XRContainer(
-  'http://localhost:1234/child.html',
-  100,
-  60,
-  100
-);
-container.object.position.y = 30.1;
-container.object.position.z = -100;
+const container = new XRContainer('http://localhost:1234/child.html', 8, 6, 8);
+container.object.position.y = 3.1;
+container.object.position.z = -5;
 scene.add(container.object);
 
+const stats = Stats();
+document.body.appendChild(stats.dom);
+
 //render
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((time, frame) => {
   coolKeyboardMovement.tick(objects);
   coolXRMovement.tick(renderer);
 
+  container.tick(renderer, camera, coolXRMovement.player, time, frame);
   renderer.render(scene, camera);
-  container.render(renderer, camera);
+
+  stats.update();
 });

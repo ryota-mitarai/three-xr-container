@@ -30,9 +30,10 @@ export default class CoolKeyboardMovement {
     });
 
     this.speed = 1.0;
-    this.mass = 100.0;
+    this.mass = 10.0;
     this.friction = 10.0;
-    this.jumpStrength = 300.0;
+    this.jumpStrength = 30.0;
+    this.height = 1.0;
 
     this.moveBackward = false;
     this.moveForward = false;
@@ -45,7 +46,7 @@ export default class CoolKeyboardMovement {
       new THREE.Vector3(),
       new THREE.Vector3(0, -1, 0),
       0,
-      10
+      this.height
     );
 
     this.direction = new THREE.Vector3();
@@ -124,14 +125,14 @@ export default class CoolKeyboardMovement {
       velocity.y -= 9.8 * this.mass * delta;
 
       this.raycaster.ray.origin.copy(this.controls.getObject().position);
-      this.raycaster.ray.origin.y -= 10;
+      this.raycaster.ray.origin.y -= this.height;
 
       const intersections = this.raycaster.intersectObjects(solidObjects);
       this.onObject = intersections.length > 0;
 
-      if (this.controls.getObject().position.y < 10) {
+      if (this.controls.getObject().position.y < this.height) {
         velocity.y = 0;
-        this.controls.getObject().position.y = 10;
+        this.controls.getObject().position.y = this.height;
 
         this.canJump = true;
       }
@@ -157,8 +158,8 @@ export default class CoolKeyboardMovement {
       velocity.x -= this.direction.x * 400.0 * delta;
     }
 
-    this.controls.moveRight(-velocity.x * delta * this.speed);
-    this.controls.moveForward(-velocity.z * delta * this.speed);
+    this.controls.moveRight((-velocity.x * delta * this.speed) / 10.0);
+    this.controls.moveForward((-velocity.z * delta * this.speed) / 10.0);
     this.controls.getObject().position.y += velocity.y * delta;
   };
 }
