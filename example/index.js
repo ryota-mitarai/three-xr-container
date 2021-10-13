@@ -60,7 +60,7 @@ const coolXRMovement = new CoolXRMovement(renderer, dolly);
 const coolKeyboardMovement = new CoolKeyboardMovement(renderer, camera, dolly);
 
 //container
-const container = new XRContainer('http://localhost:1234/child.html', 8, 6, 8);
+const container = new XRContainer('http://localhost:1234/child.js', 8, 6, 8);
 container.object.position.y = 3.1;
 container.object.position.z = -5;
 scene.add(container.object);
@@ -75,6 +75,7 @@ renderer.setAnimationLoop((time, frame) => {
 
   container.tick(renderer, camera, coolXRMovement.player, time, frame);
   renderer.render(scene, camera);
+  container.tock(renderer, camera);
 
   stats.update();
 });
