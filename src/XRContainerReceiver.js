@@ -1,8 +1,5 @@
 import * as THREE from 'three';
 
-import XR from './xr/XR';
-import XRWebGLLayer from './xr/XRWebGLLayer';
-
 export default class XRContainerReciever {
   constructor(renderer, scene, camera, heightOffset) {
     this.renderer = renderer;
@@ -11,21 +8,17 @@ export default class XRContainerReciever {
     this.heightOffset = heightOffset;
 
     this.isPresenting = false;
+    this.VRCameraInfo = [{}, {}];
 
-    window.addEventListener('message', this.receiveMessage);
+    this.VRCameras = new THREE.ArrayCamera([
+      new THREE.PerspectiveCamera(),
+      new THREE.PerspectiveCamera(),
+    ]);
+
+    onmessage = this.receiveMessage;
   }
 
-  init = () => {
-    const xr = new XR();
-    delete navigator.xr;
-    Object.defineProperty(navigator, 'xr', {
-      get() {
-        return xr;
-      },
-    });
-
-    window.XRWebGLLayer = XRWebGLLayer;
-  };
+  init = () => {};
 
   receiveMessage = (e) => {
     const message = e.data.message;
@@ -47,51 +40,101 @@ export default class XRContainerReciever {
       case 'xrcSetResolution':
         this.resolution = value;
         break;
+      case 'xrcViewport':
+        this.viewports = value.viewports;
+        this.framebufferWidth = value.framebufferWidth;
+        this.framebufferHeight = value.framebufferHeight;
+        break;
+      case 'xrcSetArrayCamera':
+        this.setArrayCamera(value);
+        break;
+      case 'xrcSetVRCamera':
+        this.setVRCamera(value);
+        break;
     }
   };
 
-  onSessionStarted = async () => {
-    const session = await navigator.xr.requestSession();
-    await this.renderer.xr.setSession(session);
+  setArrayCamera = ({
+    fov,
+    matrixWorld,
+    matrixWorldInverse,
+    projectionMatrix,
+    projectionMatrixInverse,
+    position,
+    quaternion,
+    offsetPos,
+  }) => {
+    const camera = this.VRCameras;
+    camera.matrixAutoUpdate = false;
+    camera.fov = fov;
+
+    matrixWorld[14] += offsetPos[2];
+    matrixWorld[13] += offsetPos[1];
+    matrixWorld[12] += offsetPos[0];
+    camera.matrixWorld.fromArray(matrixWorld);
+    camera.matrixWorldInverse.fromArray(matrixWorldInverse);
+    camera.projectionMatrix.fromArray(projectionMatrix);
+    camera.projectionMatrixInverse.fromArray(projectionMatrixInverse);
+    // camera.position.fromArray(position);
+    // camera.quaternion.fromArray(quaternion);
+    // camera.updateMatrix();
+    // camera.updateMatrixWorld();
+  };
+
+  setVRCamera = ({
+    i,
+    fov,
+    viewport,
+    matrixWorld,
+    projectionMatrix,
+    projectionMatrixInverse,
+    offsetPos,
+  }) => {
+    const camera = this.VRCameras.cameras[i];
+    camera.matrixAutoUpdate = false;
+    camera.fov = fov;
+    camera.viewport = viewport;
+
+    matrixWorld[14] += offsetPos[2];
+    matrixWorld[13] += offsetPos[1];
+    matrixWorld[12] += offsetPos[0];
+    camera.matrixWorld.fromArray(matrixWorld);
+    camera.matrixWorldInverse = camera.matrixWorld.clone().invert();
+    camera.projectionMatrix.fromArray(projectionMatrix);
+    camera.projectionMatrixInverse.fromArray(projectionMatrixInverse);
+
+    camera.position.fromArray(offsetPos);
+  };
+
+  VRRender = (renderer, scene) => {
+    renderer.render(scene, this.VRCameras);
+  };
+
+  onSessionStarted = () => {
     this.isPresenting = true;
   };
 
-  onSessionEnded = async () => {
+  onSessionEnded = () => {
     this.isPresenting = false;
   };
 
-  updateCamera = (value) => {
+  updateCamera = ({ pos, rot }) => {
     if (this.isPresenting === true) {
       if (!this.player) return;
-      this.player.position.copy(value.pos);
+      this.player.position.copy(pos);
     } else {
       if (!this.camera) return;
-      this.camera.position.copy(value.pos);
-      this.camera.rotation.copy(value.rot);
+      this.camera.position.copy(pos);
+      this.camera.rotation.copy(rot);
     }
   };
 
-  tick = (player) => {
+  tick = (player, renderer, scene) => {
     this.player = player;
+    this.renderer = renderer;
 
-    this.renderer.clear();
+    renderer.clear();
   };
 
-  tock = () => {
-    if (this.isPresenting === true && !this.resolution) return;
-
-    const { x, y } = this.resolution ?? this.renderer.getSize(new THREE.Vector2());
-
-    if (this.x !== x || this.y !== y) {
-      this.buffer = new Uint8Array(x * y * 4);
-      this.x = x;
-      this.y = y;
-
-      this.renderTarget = new THREE.WebGLRenderTarget(this.x, this.y);
-      this.renderer.setRenderTarget(this.renderTarget);
-    }
-
-    this.renderer.readRenderTargetPixels(this.renderTarget, 0, 0, this.x, this.y, this.buffer);
-    window.parent.postMessage({ message: 'xrcSetChildBuffer', value: this.buffer }, '*');
-  };
+  tock = () => {};
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import { fragmentShader, vertexShader } from './shaders';
+import { fragmentShader, fragmentShaderVR, vertexShader } from './shaders';
 
 import XRViewport from './xr/XRViewport';
 import XRInputSource from './xr/XRInputSource';
@@ -8,18 +8,45 @@ import XRReferenceSpace from './xr/XRReferenceSpace';
 import XRViewerPose from './xr/XRViewerPose';
 
 export default class XRContainer {
-  constructor(url, width, height, depth) {
+  constructor(url, containerWidth, containerHeight, containerDepth) {
     this.childIsPresenting = false;
 
-    this.width = width;
-    this.height = height;
-    this.depth = depth;
+    this.containerHeight = containerHeight;
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    this.worker = new Worker(new URL('./child.js', import.meta.url), { type: 'module' });
+
+    window.addEventListener('message', this.receiveMessage);
+    {
+      const canvas = document.querySelector('#LEFT');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.style.position = 'absolute';
+      canvas.style.top = '-1000%';
+      canvas.style.left = '-1000%';
+      this.childTexture = new THREE.CanvasTexture(canvas);
+      this.offscreenCanvas = canvas.transferControlToOffscreen();
+
+      this.worker.postMessage(
+        {
+          message: 'init',
+          value: { canvas: this.offscreenCanvas },
+        },
+        [this.offscreenCanvas]
+      );
+    }
 
     {
       //init three
       this.object = new THREE.Group();
 
-      const geometry1 = new THREE.BoxBufferGeometry(width, height, depth);
+      const geometry1 = new THREE.BoxBufferGeometry(
+        containerWidth,
+        containerHeight,
+        containerDepth
+      );
       const material1 = new THREE.MeshBasicMaterial({
         colorWrite: false,
         side: THREE.DoubleSide,
@@ -34,53 +61,27 @@ export default class XRContainer {
       const wireframe = new THREE.LineSegments(geometry2, material2);
 
       this.object.add(wireframe);
-    }
 
-    {
-      //init iframe
-      const div = document.createElement('div');
-      div.style.overflow = 'hidden';
-      div.style.position = 'relative';
-
-      const iframe = (this.iframe = document.createElement('iframe'));
-      iframe.src = url;
-
-      iframe.style.position = 'absolute';
-      iframe.style.top = '100%';
-      iframe.style.left = '100%';
-      iframe.style.visibility = 'hidden';
-
-      div.appendChild(iframe);
-      document.body.appendChild(div);
-
-      this.iframe.addEventListener(
-        'load',
-        () => {
-          this.iframe.contentWindow.postMessage({ message: 'xrcOpen' }, '*');
-        },
-        { once: true }
+      this.orthoCamera = new THREE.OrthographicCamera(
+        width / -2,
+        width / 2,
+        height / 2,
+        height / -2,
+        1,
+        100
       );
+      this.orthoCamera.position.z = 5;
     }
-
-    window.addEventListener('message', this.receiveMessage);
   }
 
   receiveMessage = (e) => {
     const message = e.data.message;
     const value = e.data.value;
-
-    switch (message) {
-      case 'xrcSetChildBuffer':
-        this.buffer = value;
-    }
   };
 
   onCanvasResize = (canvas) => {
     this.canvasWidth = canvas.width;
     this.canvasHeight = canvas.height;
-
-    this.iframe.width = canvas.width;
-    this.iframe.height = canvas.height;
   };
 
   tick = (renderer, camera, player, time, frame) => {
@@ -88,9 +89,9 @@ export default class XRContainer {
       this.childIsPresenting = renderer.xr.isPresenting;
 
       if (renderer.xr.isPresenting === true) {
-        this.iframe.contentWindow.postMessage({ message: 'xrcSessionStart' }, '*');
+        this.worker.postMessage({ message: 'xrcSessionStart' });
       } else {
-        this.iframe.contentWindow.postMessage({ message: 'xrcSessionEnd' }, '*');
+        this.worker.postMessage({ message: 'xrcSessionEnd' });
       }
     }
 
@@ -110,23 +111,17 @@ export default class XRContainer {
 
         //reference space
         const fakeReferenceSpace = new XRReferenceSpace(session, 'fakeRefS');
-        this.iframe.contentWindow.postMessage(
-          {
-            message: 'xrcReferenceSpace',
-            value: fakeReferenceSpace,
-          },
-          '*'
-        );
+        this.worker.postMessage({
+          message: 'xrcReferenceSpace',
+          value: fakeReferenceSpace,
+        });
 
         //viewer pose
         const fakeViewerPose = new XRViewerPose(viewerPose);
-        this.iframe.contentWindow.postMessage(
-          {
-            message: 'xrcViewerPose',
-            value: fakeViewerPose,
-          },
-          '*'
-        );
+        this.worker.postMessage({
+          message: 'xrcViewerPose',
+          value: fakeViewerPose,
+        });
 
         //input sources
         const inputSources = session.inputSources;
@@ -137,13 +132,10 @@ export default class XRContainer {
         const fakeInputSources = Object.assign({}, inputSourceList);
         fakeInputSources.length = inputSourceList.length;
 
-        this.iframe.contentWindow.postMessage(
-          {
-            message: 'xrcInputSources',
-            value: fakeInputSources,
-          },
-          '*'
-        );
+        this.worker.postMessage({
+          message: 'xrcInputSources',
+          value: fakeInputSources,
+        });
 
         //viewport
         const baseLayer = session.renderState.baseLayer;
@@ -155,13 +147,10 @@ export default class XRContainer {
           return new XRViewport(baseLayer.getViewport(view), view.eye);
         });
 
-        this.iframe.contentWindow.postMessage(
-          {
-            message: 'xrcViewport',
-            value: { viewports, framebufferWidth, framebufferHeight },
-          },
-          '*'
-        );
+        this.worker.postMessage({
+          message: 'xrcViewport',
+          value: { viewports, framebufferWidth, framebufferHeight },
+        });
       }
     }
 
@@ -171,62 +160,133 @@ export default class XRContainer {
 
     const offsetPos = new THREE.Vector3(
       userPos.x - containerPos.x,
-      userPos.y - (containerPos.y - this.height / 2),
+      userPos.y - (containerPos.y - this.containerHeight / 2),
       userPos.z - containerPos.z
     );
 
-    this.iframe.contentWindow.postMessage(
-      {
-        message: 'xrcSetCamera',
-        value: { pos: offsetPos, rot: camera.rotation.clone() },
-      },
-      '*'
+    const offsetPosVR = new THREE.Vector3(
+      -containerPos.x,
+      userPos.y - (containerPos.y - this.containerHeight / 2),
+      -containerPos.z
     );
 
-    this.iframe.contentWindow.postMessage(
+    this.worker.postMessage({
+      message: 'xrcSetCamera',
+      value: { pos: offsetPos, rot: camera.rotation.clone() },
+    });
+
+    if (this.childIsPresenting === true) {
       {
-        message: 'xrcAnimationFrame',
-        value: { time },
-      },
-      '*'
-    );
+        const {
+          fov,
+          projectionMatrix,
+          projectionMatrixInverse,
+          matrixWorld,
+          matrixWorldInverse,
+          position,
+          quaternion,
+        } = renderer.xr.getCamera();
+
+        this.worker.postMessage({
+          message: 'xrcSetArrayCamera',
+          value: {
+            fov,
+            matrixWorld: matrixWorld.toArray(),
+            matrixWorldInverse: matrixWorldInverse.toArray(),
+            projectionMatrix: projectionMatrix.toArray(),
+            projectionMatrixInverse: projectionMatrixInverse.toArray(),
+            position: position.toArray(),
+            quaternion: quaternion.toArray(),
+            offsetPos: offsetPosVR.toArray(),
+          },
+        });
+      }
+
+      renderer.xr.getCamera().cameras.forEach((camera, i) => {
+        const {
+          fov,
+          viewport,
+          matrixWorld,
+          matrixWorldInverse,
+          projectionMatrix,
+          projectionMatrixInverse,
+        } = camera;
+
+        this.worker.postMessage({
+          message: 'xrcSetVRCamera',
+          value: {
+            i,
+            fov,
+            viewport,
+            matrixWorld: matrixWorld.toArray(),
+            matrixWorldInverse: matrixWorldInverse.toArray(),
+            projectionMatrix: projectionMatrix.toArray(),
+            projectionMatrixInverse: projectionMatrixInverse.toArray(),
+            offsetPos: offsetPosVR.toArray(),
+          },
+        });
+      });
+    }
+
+    this.worker.postMessage({
+      message: 'xrcAnimationFrame',
+      value: { time },
+    });
 
     const layer = frame?.session.renderState.baseLayer;
     const resolution = layer
       ? new THREE.Vector2(layer.framebufferWidth, layer.framebufferHeight)
       : renderer.getSize(new THREE.Vector2());
 
+    this.resolution = resolution;
+
     if (this.buffer?.length !== resolution.x * resolution.y * 4) {
       this.buffer = new Uint8Array(resolution.x * resolution.y * 4);
     }
 
-    const texture = new THREE.DataTexture(
-      this.buffer,
-      resolution.x,
-      resolution.y,
-      THREE.RGBAFormat
-    );
-
-    const newMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        u_resolution: { value: resolution },
-        u_texture: { value: texture },
-      },
-
-      vertexShader: vertexShader,
-      fragmentShader: fragmentShader,
-
-      transparent: true,
-      side: THREE.DoubleSide,
-    });
-
-    this.mesh.material.uniforms?.u_texture.value.dispose();
-    this.mesh.material.dispose();
-    this.mesh.material = newMaterial;
-
     const canvas = renderer.domElement;
     if (this.canvasWidth !== canvas.width || this.canvasHeight !== canvas.height) {
       this.onCanvasResize(canvas);
+    }
+  };
+
+  tock = (renderer, camera) => {
+    this.childTexture.needsUpdate = true;
+
+    if (this.childIsPresenting === false) {
+      const newMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          u_resolution: { value: this.resolution },
+          u_texture: { value: this.childTexture },
+        },
+
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+
+        transparent: true,
+        side: THREE.DoubleSide,
+      });
+
+      this.mesh.material.uniforms?.u_texture.value.dispose();
+      this.mesh.material.dispose();
+      this.mesh.material = newMaterial;
+    } else {
+      const newMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          u_resolution: { value: this.resolution },
+          u_texture: { value: this.childTexture },
+        },
+
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+
+        transparent: true,
+        side: THREE.DoubleSide,
+      });
+
+      this.mesh.material.uniforms?.u_texture.value.dispose();
+      this.mesh.material.dispose();
+      this.mesh.material = newMaterial;
     }
   };
 }
